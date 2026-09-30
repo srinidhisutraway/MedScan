@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab Aggregator – compare lab test prices by pincode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f2f5f4;--card:#fff;--ink:#14282b;--muted:#5d6f72;--line:#d9e2e0;--accent:#0b6b63;--best:#e8f5f1;--warn:#8a5a00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Figtree,system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+h1{font:700 clamp(1.8rem,5vw,2.6rem)/1.1 "Bricolage Grotesque",Figtree,sans-serif;margin:0 0 8px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 24px}
+form{display:grid;grid-template-columns:2fr 1fr auto;gap:10px;margin-bottom:24px}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+input{font:inherit;padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+button{font:600 1rem Figtree,sans-serif;align-self:end;padding:12px 22px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+:focus-visible{outline:3px solid #f0b429;outline-offset:2px}
+.status{color:var(--muted);margin:0 0 12px}
+.status.err{color:#a12622}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:12px;display:grid;grid-template-columns:1fr auto;gap:12px 20px}
+.card.best{border:2px solid var(--accent);background:linear-gradient(0deg,#fff,#fff) padding-box}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.badge{font-size:.75rem;font-weight:600;padding:2px 9px;border-radius:99px;background:#eef1f1;color:var(--muted)}
+.badge.pkg{background:#e6eefb;color:#1d4b91}
+.badge.nabl{background:var(--best);color:var(--accent)}
+.badge.best{background:var(--accent);color:#fff}
+h2{font:600 1.15rem/1.3 "Bricolage Grotesque",Figtree,sans-serif;margin:0}
+.prov{color:var(--muted);font-size:.9rem;margin:2px 0 8px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.tag{font-size:.8rem;padding:2px 9px;border:1px solid var(--line);border-radius:6px}
+.tag.hit{border-color:var(--accent);background:var(--best);font-weight:600}
+.meta{font-size:.85rem;color:var(--muted)}
+.price{text-align:right;min-width:150px}
+.mrp{color:var(--muted);text-decoration:line-through;font-size:.9rem}
+.total{font:700 1.9rem/1.1 "Bricolage Grotesque",Figtree,sans-serif}
+.break{font-size:.82rem;color:var(--muted)}
+.save{font-size:.8rem;color:var(--accent);font-weight:600}
+@media(max-width:600px){form{grid-template-columns:1fr}.card{grid-template-columns:1fr}.price{text-align:left}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Compare lab test prices</h1>
+  <p class="sub">Enter a test and your pincode. Results are ranked by what you actually pay, including home collection.</p>
+  <form id="f">
+    <label>Test name<input id="q" value="Lipid Profile" placeholder="e.g. Lipid Profile" required></label>
+    <label>Pincode<input id="pin" value="110001" inputmode="numeric" maxlength="6" pattern="\d{6}" placeholder="6 digits" required></label>
+    <button>Search</button>
+  </form>
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+  <div id="out"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id), esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const inr=n=>"₹"+n.toLocaleString("en-IN");
+function card(r,i,q){
+  const pkg=r.item_type==="package", l=r.logistics, p=r.pricing;
+  const collect=l.home_collection?(l.home_collection_fee?`${inr(p.offer_price)} + ${inr(l.home_collection_fee)} Home Collection`:`${inr(p.offer_price)} + Free Home Collection`):`${inr(p.offer_price)} · Lab visit only`;
+  const tags=pkg?`<div class="tags" aria-label="Included tests">${r.included_tests.map(t=>`<span class="tag ${t.toLowerCase().includes(q)?"hit":""}">${esc(t)}</span>`).join("")}</div>`:"";
+  return `<article class="card ${i===0?"best":""}">
+    <div>
+      <div class="badges">${i===0?'<span class="badge best">Lowest total</span>':""}<span class="badge ${pkg?"pkg":""}">${pkg?"Package":"Single Test"}</span>${r.nabl_accredited?'<span class="badge nabl">✓ NABL Certified</span>':""}</div>
+      <h2>${esc(r.item_name)}</h2><p class="prov">${esc(r.provider_name)}</p>${tags}
+      <p class="meta">Report in ${l.report_tat_hours} hrs</p>
+    </div>
+    <div class="price">
+      <div class="mrp">${inr(p.mrp)}</div>
+      <div class="total">${inr(r.total_final_price)}</div>
+      <div class="break">${collect}</div>
+      <div class="save">${Math.round((1-p.offer_price/p.mrp)*100)}% off MRP</div>
+    </div></article>`;
+}
+async function search(e){
+  e&&e.preventDefault();
+  const q=$("q").value.trim(), pin=$("pin").value.trim(), s=$("status");
+  s.className="status"; s.textContent="Searching…"; $("out").innerHTML="";
+  try{
+    const res=await fetch(`/api/search?search_query=${encodeURIComponent(q)}&pincode=${encodeURIComponent(pin)}`);
+    const d=await res.json();
+    if(!res.ok){s.className="status err";s.textContent=d.error;return}
+    if(!d.count){s.textContent=`No labs found for "${q}" in ${pin}. Try a different pincode or a shorter test name.`;return}
+    s.textContent=`${d.count} option${d.count>1?"s":""} for "${q}" in ${pin}, lowest total price first`;
+    $("out").innerHTML=d.results.map((r,i)=>card(r,i,q.toLowerCase())).join("");
+  }catch{s.className="status err";s.textContent="Couldn't reach the server. Check that it's running and try again."}
+}
+$("f").addEventListener("submit",search); search();
+</script>
+</body>
+</html>
