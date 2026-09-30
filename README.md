@@ -1,3 +1,5 @@
+LIVE LINK: https://medscan-uumi.onrender.com/
+
 # Mini Lab Aggregator
 
 Search a lab test by pincode and compare results sorted by the **true lowest price** (`offer_price + home_collection_fee`).
